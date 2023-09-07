@@ -3,7 +3,6 @@ package index
 import (
 	"bytes"
 	"kv-go/data"
-
 	"github.com/google/btree"
 )
 
@@ -18,6 +17,22 @@ type Item struct{
 	pos *data.LogRecordPos
 }
 
+type IndexType = int8
+
+const (
+	Btree IndexType = iota + 1
+
+)
 func (ai *Item) Less(bi btree.Item) bool{
 	return bytes.Compare(ai.key, bi.(*Item).key) == -1
+}
+
+
+func NewIndexer(t IndexType) Indexer{
+	switch t{
+	case Btree:
+		return NewBtree()
+	default:
+		panic("unsupported index type")
+	}
 }

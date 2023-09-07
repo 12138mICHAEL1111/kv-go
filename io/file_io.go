@@ -1,11 +1,11 @@
 package io
-// 封装磁盘接口
 import "os"
 
 type FileIO struct{
 	fd *os.File
 }
 
+// 封装磁盘操作接口
 
 func NewFileIOManager(fileName string) (*FileIO,error){
 	fd,err := os.OpenFile(fileName, os.O_CREATE | os.O_RDWR | os.O_APPEND,DataFilePerm)

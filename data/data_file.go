@@ -2,6 +2,9 @@ package data
 
 import "kv-go/io"
 
+const (
+	DataFileSuffix string = ".data"
+)
 type DataFile struct{
 	FileId uint32
 	WriteOffset int64  // 文件写到了哪个位置
@@ -21,6 +24,8 @@ func (df *DataFile) Write(buf []byte) error {
 	return nil
 }
 
-func (df *DataFile) Read(offset int64) (*LogRecord,error) {
-	return nil,nil
+func (df *DataFile) Read(offset int64) (*LogRecord,int64,error) {
+	return nil,0,nil
 }
+
+
