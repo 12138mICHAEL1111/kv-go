@@ -91,6 +91,7 @@ func (db *DB) appendLogRecord(logRecord *data.LogRecord)(*data.LogRecordPos,erro
 		}
 	}
 
+	//logrecord加密
 	encRecord, size := data.EncodeLogRecord(logRecord)
 
 	//如果写入的数据超出了文件大小,设置当前文件为旧的，打开新的文件
@@ -217,7 +218,7 @@ func (db *DB) loadDataFiles() error{
 	// 对文件id排序
 	sort.Ints(fileIds)
 	db.fileIds = fileIds
-	//遍历并打开每个文件
+	//遍历并打开每个文件(缺点)
 	for i, fid := range fileIds {
 		dataFile,err := data.OpenDataFile(db.config.DirPath,uint32(fid))
 		if err !=  nil {
@@ -267,12 +268,17 @@ func (db *DB) initIndex() error{
 				Offset: offset,
 			}
 
+			var ok bool
 			// 删除类型
 			if logRecord.Type == data.LogRecordDeleted {
-				db.index.Delete(logRecord.Key)
+				ok = db.index.Delete(logRecord.Key)
 			}else{
 				// 添加到索引中
-				db.index.Put(logRecord.Key,logRecordPos)
+				ok = db.index.Put(logRecord.Key,logRecordPos)
+			}
+
+			if !ok {
+				return ErrIndexUpdateFailed
 			}
 			// 更新offset
 			offset += size
@@ -283,5 +289,38 @@ func (db *DB) initIndex() error{
 			db.activeFile.WriteOffset = offset
 		}
 	}
+	return nil
+}
+
+//删除 添加一条logrecord
+func (db *DB) Delete(key []byte) error {
+	if len(key) == 0 {
+		return ErrKeyIsEmpty
+	}
+
+	// 先查询key是否存在
+	if pos := db.index.Get(key);pos != nil {
+		return nil
+	}
+
+	// 添加logrecord
+	logRecord := &data.LogRecord{
+		Key: key,
+		Type: data.LogRecordDeleted,
+	}
+
+	_,err := db.appendLogRecord(logRecord)
+
+	if err != nil {
+		return err
+	}
+
+	//从内存索引中删除
+	ok:= db.index.Delete(key)
+
+	if !ok {
+		return ErrIndexUpdateFailed
+	}
+
 	return nil
 }

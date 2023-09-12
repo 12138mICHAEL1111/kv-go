@@ -1,21 +1,14 @@
-package io
-import "os"
+package fio
+
+import (
+	"os"
+)
 
 type FileIO struct{
 	fd *os.File
 }
 
 // 封装磁盘操作接口
-
-func NewFileIOManager(fileName string) (*FileIO,error){
-	fd,err := os.OpenFile(fileName, os.O_CREATE | os.O_RDWR | os.O_APPEND,DataFilePerm)
-
-	if err != nil{
-		return nil,err
-	}
-
-	return &FileIO{fd:fd},nil
-}
 
 func(fio *FileIO) Read(b []byte,offset int64)(int,error){
 	return fio.fd.ReadAt(b,offset)
@@ -31,4 +24,15 @@ func(fio *FileIO) Sync() error{
 
 func (fio *FileIO) Close() error{
 	return fio.fd.Close()
+}
+
+func (fio *FileIO) Size() (int64,error){
+	stat,err := fio.fd.Stat()
+	if err != nil {
+		return 0, nil 
+	}
+	return stat.Size(),nil
+}
+func NewIoManager(fileName string)(IOManager,error){
+	return NewFileIOManager(fileName)
 }
