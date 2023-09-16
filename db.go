@@ -22,6 +22,7 @@ type DB struct{
 	index index.Indexer //内存索引
 }
 
+// 开启数据库
 func Open(config *Config)(*DB,error){
 	//校验配置
 	if err := checkConfig(config);err != nil{
@@ -145,7 +146,7 @@ func (db *DB) setActiveDataFile() error {
 //查询
 func (db *DB) Get(key []byte)([]byte,error){
 	db.mu.RLock()
-	defer db.mu.Unlock()
+	defer db.mu.RUnlock()
 	if len(key) == 0 {
 		return nil, ErrKeyIsEmpty
 	}
@@ -162,7 +163,7 @@ func (db *DB) Get(key []byte)([]byte,error){
 	if db.activeFile.FileId == logRecordPos.Fid{
 		dataFile = db.activeFile
 	}else{
-		dataFile= db.olderFiles[logRecordPos.Fid]
+		dataFile= db.olderFiles[logRecordPos.Fid] //获取旧的文件
 	}
 
 	if dataFile == nil {
@@ -298,12 +299,12 @@ func (db *DB) Delete(key []byte) error {
 		return ErrKeyIsEmpty
 	}
 
-	// 先查询key是否存在
-	if pos := db.index.Get(key);pos != nil {
+	// 先查询key是否存在 key不存在就直接跳过
+	if pos := db.index.Get(key);pos == nil {
 		return nil
 	}
 
-	// 添加logrecord
+	// 添加logrecord，类型为delete
 	logRecord := &data.LogRecord{
 		Key: key,
 		Type: data.LogRecordDeleted,

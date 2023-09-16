@@ -18,5 +18,4 @@ func TestWriteDataFile(t *testing.T){
 	assert.NotNil(t,datafile1)
 	err = datafile1.Write([]byte{'c','a'})
 	assert.Nil(t,err)
-
 }

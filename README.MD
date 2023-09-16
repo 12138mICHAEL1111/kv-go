@@ -1,1 +1,1 @@
-## A KV database developed by Golang
+## A KV database developed using golang

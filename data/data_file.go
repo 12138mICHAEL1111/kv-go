@@ -11,77 +11,82 @@ import (
 const (
 	DataFileSuffix string = ".data"
 )
-type DataFile struct{
-	FileId uint32
-	WriteOffset int64  // 文件写到了哪个位置
-	IOManager fio.IOManager // 就是一个打开文件的实例
+
+type DataFile struct {
+	FileId      uint32
+	WriteOffset int64         // 文件写到了哪个位置
+	IOManager   fio.IOManager // 就是一个打开文件的实例
 }
 
 //打开数据文件
-func OpenDataFile(dirPath string,fileId uint32)(*DataFile, error){
-	fileName := filepath.Join(dirPath, fmt.Sprintf("%09d" , fileId) + DataFileSuffix)
+func OpenDataFile(dirPath string, fileId uint32) (*DataFile, error) {
+	fileName := filepath.Join(dirPath, fmt.Sprintf("%09d", fileId)+DataFileSuffix)
 	// 初始化iomanager
-	ioManager,err := fio.NewIoManager(fileName)
+	ioManager, err := fio.NewIoManager(fileName)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 	return &DataFile{
-		FileId: fileId,
+		FileId:      fileId,
 		WriteOffset: 0,
-		IOManager: ioManager,
+		IOManager:   ioManager,
 	}, nil
 
 }
 
-func (df *DataFile) Read(offset int64) (*LogRecord,int64,error) {
+func (df *DataFile) Read(offset int64) (*LogRecord, int64, error) {
 	//如果最后一条logrecord长度小于maxLogRecordHeaderSize，只需读到文件末尾，防止报eof
-	fileSize,err := df.IOManager.Size()
+	fileSize, err := df.IOManager.Size()
 	if err != nil {
-		return nil,0,err
+		return nil, 0, err
 	}
 
 	var headerBytes int64 = maxLogRecordHeaderSize
-	if offset + maxLogRecordHeaderSize > fileSize{
+	if offset+maxLogRecordHeaderSize > fileSize {
 		headerBytes = fileSize - offset
 	}
 
 	// 读取header信息 header最大长度
-	headerbuf,err := df.readNBytes(headerBytes,offset)
+	headerbuf, err := df.readNBytes(headerBytes, offset)
 	if err != nil {
-		return nil,0,nil
+		return nil, 0, nil
 	}
 
-	header,headerSize := decodeLogRecordHeader(headerbuf)
+	header, headerSize := decodeLogRecordHeader(headerbuf)
+
 	// 读取到了文件末尾
 	if header == nil {
-		return nil,0, io.EOF
+		return nil, 0, io.EOF
 	}
 
-	if header.crc == 0 && header.keySize == 0 && header.valueSize==0{
-		return nil,0,io.EOF
+	if header.crc == 0 && header.keySize == 0 && header.valueSize == 0 {
+		return nil, 0, io.EOF
 	}
 
 	// 取出key和value的长度
-	keySize,valueSize := int64(header.keySize),int64(header.valueSize)
+	keySize, valueSize := int64(header.keySize), int64(header.valueSize)
 	var recordSize = headerSize + keySize + valueSize
 
-	logRecord := &LogRecord{Type:header.recordType}
+	logRecord := &LogRecord{Type: header.recordType}
 	if keySize > 0 || valueSize > 0 {
-		kvBuf,err := df.readNBytes(keySize+valueSize,offset+headerSize)
+		//从offset+headerSize的位置读取keySize+valueSize长度
+		kvBuf, err := df.readNBytes(keySize+valueSize, offset+headerSize)
 		if err != nil {
-			return nil,0,err
+			return nil, 0, err
 		}
 
 		logRecord.Key = kvBuf[:keySize]
 		logRecord.Value = kvBuf[keySize:]
 	}
 
-	//校验数据有效性
-	crc := getLogRecordCRC(logRecord,headerbuf[crc32.Size:headerSize])
+	// 根据header的其余信息和key value重新计算crc并与储存的crc比较
+	// 不一致就代表数据被损坏了
+	crc := calcLogRecordCRC(logRecord, headerbuf[crc32.Size:headerSize])
 	if crc != header.crc {
-		return nil,0,ErrInvalidCRC
+		return nil, 0, ErrInvalidCRC
 	}
-	return logRecord,recordSize,nil
+
+	return logRecord, recordSize, nil
 }
 
 func (df *DataFile) Sync() error {
@@ -89,7 +94,7 @@ func (df *DataFile) Sync() error {
 }
 
 func (df *DataFile) Write(buf []byte) error {
-	n,err := df.IOManager.Write(buf)
+	n, err := df.IOManager.Write(buf)
 	if err != nil {
 		return err
 	}
@@ -101,11 +106,8 @@ func (df *DataFile) Close() error {
 	return df.IOManager.Close()
 }
 
-func (df *DataFile) readNBytes(n int64,offset int64)(b []byte,err error){
-	b = make([]byte,n)
-	_,err = df.IOManager.Read(b,offset)
+func (df *DataFile) readNBytes(n int64, offset int64) (b []byte, err error) {
+	b = make([]byte, n)
+	_, err = df.IOManager.Read(b, offset)
 	return
 }
-
-
-
