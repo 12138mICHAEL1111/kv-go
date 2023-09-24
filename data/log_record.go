@@ -14,6 +14,7 @@ var (
 const (
 	LogRecordNormal LogRecordType = iota
 	LogRecordDeleted
+	LogRecordTxnFinished
 )
 
 // logrecord header
@@ -36,6 +37,11 @@ type LogRecord struct{
 type LogRecordPos struct{
 	Fid uint32 //文件id 哪个文件
 	Offset int64 // 文件里位置
+}
+
+type TransactionRecord struct{
+	Record *LogRecord
+	Pos *LogRecordPos
 }
 
 //对logrecord编码 返回整条记录编码，长度
@@ -100,7 +106,7 @@ func calcLogRecordCRC(lr *LogRecord, residualHeader[]byte)uint32{
 	if lr == nil {
 		return 0
 	}
-	crc := crc32.ChecksumIEEE(residualHeader[:])
+	crc := crc32.ChecksumIEEE(residualHeader)
 	crc = crc32.Update(crc,crc32.IEEETable,lr.Key)
 	crc = crc32.Update(crc,crc32.IEEETable,lr.Value)
 	return crc

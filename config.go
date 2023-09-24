@@ -19,3 +19,18 @@ var DefaultConfig = Config{
 	SyncWrites:         false,
 	IndexType:          Btree,
 }
+
+type IteratorConfig struct{
+	Prefix []byte
+	Reverse bool
+}
+
+var DefaultIteratorConfig = IteratorConfig{
+	Prefix: []byte{},
+	Reverse: false,
+}
+
+type WriteBatchConfig struct{
+	MaxBatchNum uint // 一次批量最大数量
+	SyncWrites bool
+}
