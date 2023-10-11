@@ -5,7 +5,6 @@ import (
 	"kv-go/data"
 	"sort"
 	"sync"
-
 	"github.com/google/btree"
 )
 
@@ -14,6 +13,7 @@ type BTree struct{
 	tree *btree.BTree
 	lock *sync.RWMutex
 }
+
 
 func NewBtree() *BTree{
 	return &BTree{

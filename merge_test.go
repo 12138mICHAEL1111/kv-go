@@ -159,3 +159,11 @@ func TestDB_Merge5(t *testing.T) {
 		assert.NotNil(t, val)
 	}
 }
+
+func Test_close(t *testing.T){
+	opts := DefaultConfig
+	db, _ := Open(opts)
+	db.Close()
+	assert.Nil(t,db.index)
+}
+

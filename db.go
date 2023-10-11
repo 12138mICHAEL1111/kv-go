@@ -459,11 +459,18 @@ func (db *DB) Stat() *Stat {
 }
 
 func (db *DB) Close() error{
+
 	db.mu.Lock()
 	defer func() {
 		db.mu.Unlock()
-		db = nil
 	}()
+	
+	db.index = nil
+	
+	if db.activeFile == nil {
+		return nil
+	}
+
 	//	关闭当前活跃文件
 	if err := db.activeFile.Close(); err != nil {
 		return err
@@ -474,6 +481,5 @@ func (db *DB) Close() error{
 			return err
 		}
 	}
-	
 	return nil
 }
