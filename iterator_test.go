@@ -11,7 +11,7 @@ func TestDB_NewIterator(t *testing.T) {
 	opts := DefaultConfig
 	dir, _ := os.MkdirTemp("", "bitcask-go-iterator-1")
 	opts.DirPath = dir
-	db, err := Open(&opts)
+	db, err := Open(opts)
 	defer destroyDB(db)
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
@@ -25,7 +25,7 @@ func TestDB_Iterator_One_Value(t *testing.T) {
 	opts := DefaultConfig
 	dir, _ := os.MkdirTemp("", "bitcask-go-iterator-2")
 	opts.DirPath = dir
-	db, err := Open(&opts)
+	db, err := Open(opts)
 	defer destroyDB(db)
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
@@ -44,7 +44,7 @@ func TestDB_Iterator_One_Value(t *testing.T) {
 }
 
 func TestDB_Iterator_Multi_Values(t *testing.T) {
-	opts := &DefaultConfig
+	opts := DefaultConfig
 	dir, _ := os.MkdirTemp("", "bitcask-go-iterator-3")
 	opts.DirPath = dir
 	db, err := Open(opts)

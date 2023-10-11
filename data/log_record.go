@@ -37,6 +37,7 @@ type LogRecord struct{
 type LogRecordPos struct{
 	Fid uint32 //文件id 哪个文件
 	Offset int64 // 文件里位置
+	Size uint32 // 磁盘上面大小, 用于统计无效数据长度
 }
 
 type TransactionRecord struct{
@@ -110,4 +111,29 @@ func calcLogRecordCRC(lr *LogRecord, residualHeader[]byte)uint32{
 	crc = crc32.Update(crc,crc32.IEEETable,lr.Key)
 	crc = crc32.Update(crc,crc32.IEEETable,lr.Value)
 	return crc
+}
+
+//对logrecordpos编码
+func EncodeLogRecordPos(pos *LogRecordPos) []byte{
+	buf := make([]byte, binary.MaxVarintLen32*2+binary.MaxVarintLen64)
+	var index = 0 
+	index += binary.PutVarint(buf[index:],int64(pos.Fid))
+	index += binary.PutVarint(buf[index:],pos.Offset)
+	index += binary.PutVarint(buf[index:],int64(pos.Size))
+	return buf[:index]
+}
+
+//对logrecordpos解码
+func DecodeLogRecordPos(buf []byte) *LogRecordPos{
+	var index = 0
+	fileId, n := binary.Varint(buf[index:])
+	index += n
+	offset,_ := binary.Varint(buf[index:])
+	index += n 
+	size,_ := binary.Varint(buf[index:])
+	return &LogRecordPos{
+		Fid: uint32(fileId),
+		Offset: offset,
+		Size: uint32(size),
+	}
 }

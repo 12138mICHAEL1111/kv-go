@@ -34,3 +34,8 @@ type WriteBatchConfig struct{
 	MaxBatchNum uint // 一次批量最大数量
 	SyncWrites bool
 }
+
+var DefaultWriteBatchOptions = WriteBatchConfig{
+	MaxBatchNum: 10000,
+	SyncWrites:  true,
+}

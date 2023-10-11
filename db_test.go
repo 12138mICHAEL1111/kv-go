@@ -2,15 +2,16 @@ package kv_go
 
 import (
 	"kv-go/utils"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func destroyDB(db *DB) {
 	if db != nil {
 		if db.activeFile != nil {
-			_ = db.activeFile.Close()
+			_ = db.Close()
 		}
 		err := os.RemoveAll(db.config.DirPath)
 		if err != nil {
@@ -19,7 +20,7 @@ func destroyDB(db *DB) {
 	}
 }
 func TestOpen(t *testing.T) {
-	opts := &DefaultConfig
+	opts := DefaultConfig
 	dir, _ := os.MkdirTemp(opts.DirPath, "bitcask-go-put")
 	opts.DirPath = dir
 	db, err := Open(opts)
@@ -29,7 +30,7 @@ func TestOpen(t *testing.T) {
 }
 
 func TestDB_Put(t *testing.T) {
-	opts := &DefaultConfig
+	opts := DefaultConfig
 	dir, _ := os.MkdirTemp(opts.DirPath, "bitcask-go-put")
 	opts.DirPath = dir
 	opts.DataFileSize = 64 * 1024 * 1024
@@ -60,10 +61,25 @@ func TestDB_Put(t *testing.T) {
 	val3, err := db.Get(utils.GetTestKey(22))
 	assert.Equal(t, 0, len(val3))
 	assert.Nil(t, err)
+
+	// 6.重启后再 Put 数据
+	err = db.Close()
+	assert.Nil(t, err)
+
+	// 重启数据库
+	db2, err := Open(opts)
+	assert.Nil(t, err)
+	assert.NotNil(t, db2)
+	val4 := utils.RandomValue(128)
+	err = db2.Put(utils.GetTestKey(55), val4)
+	assert.Nil(t, err)
+	val5, err := db2.Get(utils.GetTestKey(55))
+	assert.Nil(t, err)
+	assert.Equal(t, val4, val5)
 }
 
 func TestDB_Multi_Put(t *testing.T) {
-	opts := &DefaultConfig
+	opts := DefaultConfig
 	dir, _ := os.MkdirTemp(opts.DirPath, "bitcask-go-put")
 	opts.DirPath = dir
 	opts.DataFileSize = 64 * 1024 * 1024 
@@ -87,7 +103,7 @@ func TestDB_Get(t *testing.T) {
 	dir, _ := os.MkdirTemp("", "bitcask-go-get")
 	opts.DirPath = dir
 	opts.DataFileSize = 64 * 1024 * 1024
-	db, err := Open(&opts)
+	db, err := Open(opts)
 	defer destroyDB(db)
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
@@ -121,6 +137,21 @@ func TestDB_Get(t *testing.T) {
 	val4, err := db.Get(utils.GetTestKey(33))
 	assert.Equal(t, 0, len(val4))
 	assert.Equal(t, ErrKeyNotFound, err)
+
+	// 重启后，前面写入的数据都能拿到
+	err = db.Close()
+	assert.Nil(t, err)
+
+	// 重启数据库
+	db2, err := Open(opts)
+	val6, err := db2.Get([]byte("name"))
+	assert.Nil(t, err)
+	assert.NotNil(t, val6)
+	assert.Equal(t, val3, val6)
+
+	val8, err := db2.Get(utils.GetTestKey(33))
+	assert.Equal(t, 0, len(val8))
+	assert.Equal(t, ErrKeyNotFound, err)
 }
 
 func TestDB_Delete(t *testing.T) {
@@ -128,7 +159,7 @@ func TestDB_Delete(t *testing.T) {
 	dir, _ := os.MkdirTemp("", "bitcask-go-delete")
 	opts.DirPath = dir
 	opts.DataFileSize = 64 * 1024 * 1024
-	db, err := Open(&opts)
+	db, err := Open(opts)
 	defer destroyDB(db)
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
@@ -161,4 +192,30 @@ func TestDB_Delete(t *testing.T) {
 	assert.NotNil(t, val1)
 	assert.Nil(t, err)
 	assert.Equal(t,val1,[]byte("hello"))
+}
+
+
+func TestDB_Stat(t *testing.T) {
+	opts := DefaultConfig
+	db, err := Open(opts)
+	defer destroyDB(db)
+	assert.Nil(t, err)
+	assert.NotNil(t, db)
+
+	for i := 100; i < 10000; i++ {
+		err := db.Put(utils.GetTestKey(i), utils.RandomValue(128))
+		assert.Nil(t, err)
+	}
+	for i := 100; i < 1000; i++ {
+		err := db.Delete(utils.GetTestKey(i))
+		assert.Nil(t, err)
+	}
+	for i := 2000; i < 5000; i++ {
+		err := db.Put(utils.GetTestKey(i), utils.RandomValue(128))
+		assert.Nil(t, err)
+	}
+
+	stat := db.Stat()
+	assert.Equal(t,stat.InvalidPiece,int64(4800))
+	assert.NotNil(t, stat)
 }

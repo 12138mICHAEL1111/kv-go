@@ -10,6 +10,8 @@ import (
 
 const (
 	DataFileSuffix string = ".data"
+	HintFileName = "hint-index"
+	MergeFinishedFileName = "merge-finished"
 )
 
 type DataFile struct {
@@ -20,9 +22,27 @@ type DataFile struct {
 
 //打开数据文件
 func OpenDataFile(dirPath string, fileId uint32) (*DataFile, error) {
-	fileName := filepath.Join(dirPath, fmt.Sprintf("%09d", fileId)+DataFileSuffix)
+	filePath := GetDatafilePath(dirPath,fileId)
 	// 初始化iomanager
-	ioManager, err := fio.NewIoManager(fileName)
+	return newDataFile(filePath,fileId)
+}
+
+func OpenHintFile(dirPath string)(*DataFile,error){
+	filePath := filepath.Join(dirPath,HintFileName)
+	return newDataFile(filePath,0)
+}
+
+func OpenMergeFinishedFile(dirPath string)(*DataFile,error){
+	filePath := filepath.Join(dirPath,MergeFinishedFileName)
+	return newDataFile(filePath,0)
+}
+
+func GetDatafilePath(dirPath string, fileId uint32) string{
+	return filepath.Join(dirPath, fmt.Sprintf("%09d", fileId)+DataFileSuffix)
+}
+
+func newDataFile(filePath string, fileId uint32)(*DataFile,error){
+	ioManager, err := fio.NewIoManager(filePath)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +51,6 @@ func OpenDataFile(dirPath string, fileId uint32) (*DataFile, error) {
 		WriteOffset: 0,
 		IOManager:   ioManager,
 	}, nil
-
 }
 
 func (df *DataFile) Read(offset int64) (*LogRecord, int64, error) {
@@ -110,4 +129,15 @@ func (df *DataFile) readNBytes(n int64, offset int64) (b []byte, err error) {
 	b = make([]byte, n)
 	_, err = df.IOManager.Read(b, offset)
 	return
+}
+
+//写入索引信息到hint文件中
+func (df *DataFile) WriteHintRecord(key []byte, pos *LogRecordPos) error {
+	record := &LogRecord{
+		Key: key,
+		Value: EncodeLogRecordPos(pos) ,
+	}
+
+	logRecord,_ := EncodeLogRecord(record)
+	return df.Write(logRecord)
 }

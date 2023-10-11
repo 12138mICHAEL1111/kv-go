@@ -7,10 +7,12 @@ import (
 )
 
 type Indexer interface{
-	Put(key []byte, pos *data.LogRecordPos) bool
+	Put(key []byte, pos *data.LogRecordPos) *data.LogRecordPos
 	Get(key []byte) *data.LogRecordPos
-	Delete(key []byte) bool
+	Delete(key []byte) (*data.LogRecordPos,bool)
 	Iterator(reverse bool) Iterator
+	Size() int
+	Close() error
 }
 // 储存key和数据位置
 type Item struct{
