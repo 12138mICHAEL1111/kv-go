@@ -42,7 +42,7 @@ _ := db.Delete([]byte("hello"))
 Merge :
 
 ```go
-_ := db.Merge([]byte("hello"))
+_ := db.Merge()
 ```
 
 Batch write:
