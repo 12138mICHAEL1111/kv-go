@@ -1,6 +1,7 @@
 package kv_go
 
 import (
+	"errors"
 	"io"
 	"kv-go/data"
 	"os"
@@ -9,6 +10,10 @@ import (
 	"sort"
 	"strconv"
 )
+
+// 大致流程
+// 创建一个新的merge文件夹，遍历原始文件夹的数据，有效数据就写入新的文件夹
+// 再把merge文件夹里的内容拷贝到原始文件中
 
 const (
 	mergeDirName = "-merge"
@@ -133,6 +138,8 @@ func (db *DB) Merge() error {
 		return err
 	}
 
+	//记录nonMergeFileId，也就是activefileid，
+	//记录是因为重启时可以获取到这个nonMergeFileId进行判断是否从从hintfile中加载过内存了
 	mergeFinRecord := &data.LogRecord{
 		Key:[]byte(mergeFinishedKey),
 		Value : []byte(strconv.Itoa(int(nonMergeFileId))),
@@ -148,6 +155,10 @@ func (db *DB) Merge() error {
 		return err
 	}
 
+	err = db.loadMergeFiles()
+	if err != nil {
+		return err 
+	}
 	return nil
 }
 
@@ -157,13 +168,14 @@ func (db *DB) getMergePath() string {
 	return filepath.Join(dir, base+mergeDirName)
 }
 
+//把merge文件夹文件拷贝到database文件夹中
 func (db *DB) loadMergeFiles() error{
 	mergePath := db.getMergePath()
 
 	if _,err := os.Stat(mergePath); os.IsNotExist(err){
 		return nil
 	}
-
+	//删除merge文件
 	defer func(){
 		_ = os.RemoveAll(mergePath)
 	}()
@@ -171,7 +183,7 @@ func (db *DB) loadMergeFiles() error{
 	dirEntries,err := os.ReadDir(mergePath)
 
 	if err != nil {
-		return nil
+		return err
 	}
 
 	//查找merge完成的文件是否存在
@@ -185,10 +197,10 @@ func (db *DB) loadMergeFiles() error{
 	}
 
 	if ! mergeFinished{
-		return nil
+		return errors.New("merge not finished")
 	}
 
-	//
+	
 	nonMergeFileId, err := db.getNonMergeFileId(mergePath)
 	if err != nil {
 		return err
@@ -196,6 +208,8 @@ func (db *DB) loadMergeFiles() error{
 
 	// 删除旧的数据文件
 	var fileId uint32 = 0
+	
+	//小于nonMergeFileId的文件都是merge过的文件
 	for ; fileId < nonMergeFileId; fileId ++ {
 		filePath := data.GetDatafilePath(db.config.DirPath,fileId)
 		if _, err := os.Stat(filePath); err == nil {
@@ -205,13 +219,32 @@ func (db *DB) loadMergeFiles() error{
 		}
 	}
 
-	//将新的数据文件移动到数据目录中
+	//将新的数据文件拷贝到数据目录中
 	for _,fileName := range mergeFileNames {
 		srcPath := filepath.Join(mergePath,fileName)
 		desPath := filepath.Join(db.config.DirPath,fileName)
-		if err := os.Rename(srcPath,desPath); err != nil {
+
+		srcFile, err := os.Open(srcPath)
+		if err != nil {
 			return err
 		}
+	
+		dstFile, err := os.Create(desPath)
+		if err != nil {
+			return err
+		}
+
+		// copy是因为防止在这个过程中，程序突然挂掉，这样merge文件夹中的文件还能保留，在这个函数执行完毕后，才会销毁merge文件夹
+		if _,err := io.Copy(dstFile,srcFile); err != nil {
+			return err
+		}
+
+		if err = dstFile.Sync() ; err != nil {
+			return err
+		}
+
+		srcFile.Close()
+		dstFile.Close()
 	}
 
 	return nil

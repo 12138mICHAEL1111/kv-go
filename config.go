@@ -15,7 +15,7 @@ const (
 
 var DefaultConfig = Config{
 	DirPath:            "/Users/maike/Desktop/kv-database",
-	DataFileSize:       256 * 1024 * 1024, // 256MB
+	DataFileSize:       32 * 1024 * 1024, // 256MB
 	SyncWrites:         false,
 	IndexType:          Btree,
 }

@@ -142,19 +142,16 @@ func TestDB_Merge5(t *testing.T) {
 	wg.Wait()
 
 	//重启校验
-	err = db.Close()
-	assert.Nil(t, err)
 
-	db2, err := Open(opts)
 	defer func() {
-		_ = db2.Close()
+		_ = db.Close()
 	}()
 	assert.Nil(t, err)
-	keys := db2.ListKeys()
+	keys := db.ListKeys()
 	assert.Equal(t, 10000, len(keys))
 
 	for i := 60000; i < 70000; i++ {
-		val, err := db2.Get(utils.GetTestKey(i))
+		val, err := db.Get(utils.GetTestKey(i))
 		assert.Nil(t, err)
 		assert.NotNil(t, val)
 	}

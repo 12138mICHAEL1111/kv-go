@@ -97,11 +97,13 @@ func (wb *WriteBatch) Commit() error {
 	wb.db.mu.Lock()
 	defer wb.db.mu.Unlock()
 
-	//获取事务序列号
+	// 获取事务序列号
 	seqNo := atomic.AddUint64(&wb.db.seqNo, 1)
 
 	// 储存位置信息
 	positions := make(map[string]*data.LogRecordPos)
+
+	// 遍历pendingWrites
 	for _, record := range wb.pendingWrites {
 		logRecordPos, err := wb.db.appendLogRecord(&data.LogRecord{
 			Key:   createLogRecordKeyWithSeq(record.Key, seqNo),

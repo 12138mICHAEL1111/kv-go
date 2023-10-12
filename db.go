@@ -67,6 +67,7 @@ func Open(config Config) (*DB, error) {
 		return nil, err
 	}
 
+	//从hintfile文件中加载索引，因为hintfile不储存value，体积会比较小，加载也更快
 	if err := db.loadIndexFromHintFile(); err != nil {
 		return nil, err
 	}
@@ -99,7 +100,6 @@ func (db *DB) Put(key []byte, value []byte) error {
 		db.invalidSize += int64(oldPos.Size)
 		db.InvalidPiece += 1
 	}
-
 	return nil
 }
 
@@ -273,6 +273,7 @@ func (db *DB) initIndex() error {
 		return nil
 	}
 
+	//获取NonMergeFileId
 	hasMerge, nonMergeFileId := false, uint32(0)
 	mergeFinFileName := filepath.Join(db.config.DirPath, data.MergeFinishedFileName)
 	if _, err := os.Stat(mergeFinFileName); err == nil {
@@ -309,6 +310,7 @@ func (db *DB) initIndex() error {
 	for i, fid := range db.fileIds {
 		fileId := uint32(fid)
 
+		// 小于这个nonMergeFileId的文件都是merge过的，已经从hintfile中加载过了
 		if hasMerge && fileId < nonMergeFileId {
 			continue
 		}
@@ -346,7 +348,7 @@ func (db *DB) initIndex() error {
 			} else {
 				// 读取到了事务完成的数据
 				if logRecord.Type == data.LogRecordTxnFinished {
-					//遍历tracnsactionRecords
+					//遍历tracnsactionRecords中当前的seqNo，所以即使seqno1失败了，遍历到seqno2时，读取到了LogRecordTxnFinished，也只会遍历seqno2
 					for _, txnRecord := range tracnsactionRecords[seqNo] {
 						updateIndex(txnRecord.Record.Key, txnRecord.Record.Type, txnRecord.Pos)
 					}
@@ -373,6 +375,14 @@ func (db *DB) initIndex() error {
 		//如果是活跃文件，就更新这个文件的writeoff
 		if i == len(db.fileIds)-1 {
 			db.activeFile.WriteOffset = offset
+		}
+	}
+
+	// 记录无效事务的数量
+	for _,v := range tracnsactionRecords{
+		db.InvalidPiece += int64(len(v))
+		for _, r := range v{
+			db.invalidSize += int64(r.Pos.Size)
 		}
 	}
 
@@ -459,7 +469,6 @@ func (db *DB) Stat() *Stat {
 }
 
 func (db *DB) Close() error{
-
 	db.mu.Lock()
 	defer func() {
 		db.mu.Unlock()
