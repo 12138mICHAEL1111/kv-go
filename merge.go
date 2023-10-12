@@ -1,7 +1,6 @@
 package kv_go
 
 import (
-	"fmt"
 	"io"
 	"kv-go/data"
 	"os"
@@ -72,14 +71,13 @@ func (db *DB) Merge() error {
 		}
 	}
 
+	// 创建merge文件
 	if err := os.Mkdir(mergePath, os.ModePerm); err != nil {
 		return err
 	}
 
 	mergeConfig := db.config
-	fmt.Println(mergeConfig.DirPath)
 	mergeConfig.DirPath = mergePath
-	fmt.Println(mergeConfig.DirPath)
 	mergeConfig.SyncWrites = false
 	mergeDB, err := Open(mergeConfig)
 	if err != nil {
@@ -129,7 +127,7 @@ func (db *DB) Merge() error {
 		return err
 	}
 
-	// merge完成
+	// merge完成，创建一个代表merge完成的文件
 	mergeFinishedFile, err := data.OpenMergeFinishedFile(mergePath)
 	if err != nil {
 		return err
@@ -190,6 +188,7 @@ func (db *DB) loadMergeFiles() error{
 		return nil
 	}
 
+	//
 	nonMergeFileId, err := db.getNonMergeFileId(mergePath)
 	if err != nil {
 		return err
@@ -218,6 +217,7 @@ func (db *DB) loadMergeFiles() error{
 	return nil
 }
 
+//获取没有参与merge的datafile id
 func (db *DB) getNonMergeFileId(dirPath string) (uint32,error){
 	mergeFinishedFile,err := data.OpenMergeFinishedFile(dirPath)
 	if err != nil{
